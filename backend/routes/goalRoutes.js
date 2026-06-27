@@ -43,6 +43,35 @@ const comprehensiveGoalSchema = {
   required: ["title", "milestones"]
 };
 
+/**
+ * Helper function to execute Gemini calls with Exponential Backoff Retries
+ */
+async function generateGoalWithRetry(contextPrompt, retries = 3, delay = 3000) {
+  try {
+    return await ai.models.generateContent({
+      model: 'gemini-2.5-flash', // Reverted to stable 2.5-flash standard
+      contents: contextPrompt,
+      config: { 
+        responseMimeType: "application/json", 
+        responseSchema: comprehensiveGoalSchema 
+      },
+    });
+  } catch (error) {
+    // Check if error is due to Rate Limits (HTTP status 429)
+    if (error.status === 429 && retries > 0) {
+      console.warn(`[Quota Limit] Hit 429. Retrying in ${delay / 1000}s... (${retries} retries left)`);
+      
+      // Wait for the specified delay time
+      await new Promise(resolve => setTimeout(resolve, delay));
+      
+      // Retry call while doubling the delay duration (Exponential Backoff)
+      return generateGoalWithRetry(contextPrompt, retries - 1, delay * 2);
+    }
+    // Re-throw if it's a non-429 error or we ran out of retry attempts
+    throw error;
+  }
+}
+
 // POST: /api/goals/generate
 router.post('/generate', async (req, res) => {
   const { userGoal, hoursPerWeek, timelineValue, timelineUnit, isMoneyInvolved, budget, isTeamGoal, teamMembers } = req.body;
@@ -58,11 +87,8 @@ router.post('/generate', async (req, res) => {
   contextPrompt += `\nMOTIVATION: Add a unique 'motivationRewardIdea' for every milestone.`;
 
   try {
-    const response = await ai.models.generateContent({
-      model: 'gemini-2.5-flash',
-      contents: contextPrompt,
-      config: { responseMimeType: "application/json", responseSchema: comprehensiveGoalSchema },
-    });
+    // Call the retry helper instead of calling ai.models.generateContent directly
+    const response = await generateGoalWithRetry(contextPrompt);
 
     const generatedData = JSON.parse(response.text);
 
@@ -90,7 +116,7 @@ router.post('/generate', async (req, res) => {
     res.status(201).json(structuralGoalDoc);
   } catch (error) {
     console.error('Gemini Execution Error Matrix:', error);
-    res.status(500).json({ error: 'Failed to deconstruct goal.' });
+    res.status(500).json({ error: 'Failed to deconstruct goal due to api constraints.' });
   }
 });
 
