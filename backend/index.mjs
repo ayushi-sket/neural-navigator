@@ -3,7 +3,6 @@ import mongoose from 'mongoose';
 import cors from 'cors';
 import dotenv from 'dotenv';
 
-// Import our separate feature files
 import goalRoutes from './routes/goalRoutes.js';
 import taskRoutes from './routes/taskRoutes.js';
 import motivationRoutes from './routes/motivationRoutes.js';
@@ -15,7 +14,7 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 
-// 30-Second Global Timeout Safeguard
+// Global 30-Second API Timeout Safeguard
 app.use((req, res, next) => {
   res.setTimeout(30000, () => {
     if (!res.headersSent) {
@@ -25,12 +24,12 @@ app.use((req, res, next) => {
   next();
 });
 
-// Connect to MongoDB
+// Connect to local MongoDB Database Engine
 mongoose.connect(process.env.MONGO_URI)
   .then(() => console.log('✅ Connected to MongoDB Enterprise Mesh'))
   .catch((err) => console.error('❌ MongoDB Connection Error:', err));
 
-// Register all modular features
+// Register routes
 app.use('/api/goals', goalRoutes);
 app.use('/api/goals', taskRoutes);
 app.use('/api/motivation', motivationRoutes);

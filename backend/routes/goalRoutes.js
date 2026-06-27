@@ -1,8 +1,15 @@
 import express from 'express';
 import { GoogleGenAI, Type } from '@google/genai';
 import Goal from '../models/Goal.js';
+import dotenv from 'dotenv';
+import path from 'path';
+
+// Load environment variables directly using an absolute path to the backend root folder
+dotenv.config({ path: path.resolve(process.cwd(), '.env') });
 
 const router = express.Router();
+
+// Force the SDK to explicitly load your custom Gemini key parameter
 const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
 
 const comprehensiveGoalSchema = {
@@ -82,7 +89,7 @@ router.post('/generate', async (req, res) => {
     await structuralGoalDoc.save();
     res.status(201).json(structuralGoalDoc);
   } catch (error) {
-    console.error(error);
+    console.error('Gemini Execution Error Matrix:', error);
     res.status(500).json({ error: 'Failed to deconstruct goal.' });
   }
 });
